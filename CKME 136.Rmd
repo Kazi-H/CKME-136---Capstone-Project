@@ -1,0 +1,75 @@
+---
+title: "CKME 136 - Capstone Project"
+author: "Kazi Hasan"
+date: "7/7/2020"
+output: html_document
+---
+
+```{r}
+library(tidyverse)
+library(corrplot)
+library(caTools)
+library(caret)
+library(e1071)
+
+transactions <- as_tibble(read.csv("C:/Users/Trina/Desktop/Ryerson - Data Analytics, Big Data, and Predictive Analytics/CKME 136/train_transaction.csv"))
+dim(transactions)
+
+```
+
+## The dataset has 590540 observations and 394 variables
+
+## Creating a correlation matrix to filter out uncorrelated variables
+```{r}
+transactions_cor <- transactions %>% mutate_if(is.character, as.factor)
+transactions_cor2 <- transactions_cor %>% mutate_if(is.factor, as.numeric)  
+corr <- cor(transactions_cor2)
+corr[lower.tri(corr,diag=TRUE)] <- NA 
+corr[corr == 1] <- NA   
+corr <- as.data.frame(as.table(corr))
+corr <- na.omit(corr)   
+corr <- subset(corr, abs(Freq) > 0.5) 
+corr <- corr[order(-abs(corr$Freq)),]
+mtx_corr <- reshape2::acast(corr, Var1~Var2, value.var="Freq")
+corrplot(mtx_corr, is.corr=FALSE, tl.col="blue", na.label=" ")
+
+```
+
+## Correlation plot didn't help much to sort out uncorrelated variables. 
+
+## Encoding categorical data
+
+```{r}
+transactions$ProductCD <- factor(transactions$ProductCD, levels = c('C', 'H', 'R', 'S', 'W'), labels = c(1, 2, 3, 4, 5))
+transactions$card4 <- factor(transactions$card4, levels = c('american express', 'discover', 'mastercard', 'visa'), labels = c(1, 2, 3, 4))
+transactions$card6 <- factor(transactions$card6, levels = c('charge card', 'credit', 'debit', 'debit or credit'), labels = c(1, 2, 3, 4))
+transactions$M1 <- factor(transactions$M1, levels = c('TRUE', 'FALSE'), labels = c(1, 2))
+transactions$M2 <- factor(transactions$M2, levels = c('TRUE', 'FALSE'), labels = c(1, 2))
+transactions$M3 <- factor(transactions$M3, levels = c('TRUE', 'FALSE'), labels = c(1, 2))
+transactions$M4 <- factor(transactions$M4, levels = c('M0', 'M1', 'M2'), labels = c(1, 2, 3))
+transactions$M5 <- factor(transactions$M5, levels = c('TRUE', 'FALSE'), labels = c(1, 2))
+transactions$M6 <- factor(transactions$M6, levels = c('TRUE', 'FALSE'), labels = c(1, 2))
+transactions$M7 <- factor(transactions$M7, levels = c('TRUE', 'FALSE'), labels = c(1, 2))
+transactions$M8 <- factor(transactions$M8, levels = c('TRUE', 'FALSE'), labels = c(1, 2))
+transactions$M9 <- factor(transactions$M9, levels = c('TRUE', 'FALSE'), labels = c(1, 2))
+
+```
+
+## Dropping email columns of purchaser and recipient from dataset as they are categorical variables 
+
+```{r}
+transactions <- subset(transactions, select = -c(P_emaildomain, R_emaildomain))
+```
+
+## Splitting of dataset into train and test set
+
+```{r}
+set.seed(111)
+split <- sample.split(transactions$isFraud, SplitRatio = 0.8)
+train_transactions <- subset(transactions, split == TRUE)
+test_transactions <- subset(transactions, split == FALSE)
+```
+
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
