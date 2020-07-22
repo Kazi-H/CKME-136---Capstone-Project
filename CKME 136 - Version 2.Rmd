@@ -1,0 +1,124 @@
+---
+title: "CKME 136 - Capstone Project"
+author: "Kazi Hasan"
+date: "7/7/2020"
+output: html_document
+---
+
+```{r}
+library(tidyverse)
+library(corrplot)
+library(caTools)
+library(caret)
+library(e1071)
+library(rpart)
+
+transactions <- as_tibble(read.csv("C:/Users/Trina/Desktop/Ryerson - Data Analytics, Big Data, and Predictive Analytics/CKME 136/train_transaction.csv"))
+dim(transactions)
+
+```
+## Exploratory Data Analysis
+
+```{r}
+ggplot(transactions, aes(factor(isFraud), fill = factor(isFraud))) + geom_bar(alpha = 0.8) + theme_minimal() + ggtitle("Fraud 3.5%, Not Fraud 96.5%") + labs(x = "isFraud")
+```
+## There is a class imbalance between fraud and non-fraud transactions for obvious reasons
+```{r}
+ggplot(transactions, aes(ProductCD, fill = factor(isFraud))) + geom_bar(alpha = 0.7) + ggtitle("Fraud Transactions Productwise")
+ggplot(transactions, aes(card1, fill = factor(isFraud))) + geom_bar(alpha = 0.7) + ggtitle("Fraud Transactions in card1")
+ggplot(transactions, aes(card4, fill = factor(isFraud))) + geom_bar(alpha = 0.7) + ggtitle("Fraud Transactions in card4")
+ggplot(transactions, aes(card6, fill = factor(isFraud))) + geom_bar(alpha = 0.7) + ggtitle("Fraud Transactions in card6")
+ggplot(transactions, aes(P_emaildomain, fill = factor(isFraud))) + geom_bar(alpha = 0.7) + ggtitle("Fraud Transactions in Purchaser emaildomain") + coord_flip()
+ggplot(transactions, aes(R_emaildomain, fill = factor(isFraud))) + geom_bar(alpha = 0.7) + ggtitle("Fraud Transactions in Recipient emaildomain") + coord_flip()
+ggplot(transactions, aes(log10(C1), fill = factor(isFraud))) + geom_density (alpha = 0.1, size = 0.2) + ggtitle("Fraud Transactions in C1")
+ggplot(transactions, aes(log10(C2), fill = factor(isFraud))) + geom_density (alpha = 0.1, size = 0.2) + ggtitle("Fraud Transactions in C2")
+ggplot(transactions, aes(log10(C3), fill = factor(isFraud))) + geom_density (alpha = 0.1, size = 0.2) + ggtitle("Fraud Transactions in C3")
+ggplot(transactions, aes(log10(C4), fill = factor(isFraud))) + geom_density (alpha = 0.1, size = 0.2) + ggtitle("Fraud Transactions in C4")
+ggplot(transactions, aes(log10(C5), fill = factor(isFraud))) + geom_density (alpha = 0.1, size = 0.2) + ggtitle("Fraud Transactions in C5")
+ggplot(transactions, aes(log10(C6), fill = factor(isFraud))) + geom_density (alpha = 0.1, size = 0.2) + ggtitle("Fraud Transactions in C6")
+ggplot(transactions, aes(log10(C7), fill = factor(isFraud))) + geom_density (alpha = 0.1, size = 0.2) + ggtitle("Fraud Transactions in C7")
+ggplot(transactions, aes(log10(C8), fill = factor(isFraud))) + geom_density (alpha = 0.1, size = 0.2) + ggtitle("Fraud Transactions in C8")
+ggplot(transactions, aes(log10(C9), fill = factor(isFraud))) + geom_density (alpha = 0.1, size = 0.2) + ggtitle("Fraud Transactions in C9")
+ggplot(transactions, aes(log10(C10), fill = factor(isFraud))) + geom_density (alpha = 0.1, size = 0.2) + ggtitle("Fraud Transactions in C10")
+ggplot(transactions, aes(log10(C11), fill = factor(isFraud))) + geom_density (alpha = 0.1, size = 0.2) + ggtitle("Fraud Transactions in C11")
+ggplot(transactions, aes(log10(C12), fill = factor(isFraud))) + geom_density (alpha = 0.1, size = 0.2) + ggtitle("Fraud Transactions in C12")
+ggplot(transactions, aes(log10(C13), fill = factor(isFraud))) + geom_density (alpha = 0.1, size = 0.2) + ggtitle("Fraud Transactions in C13")
+ggplot(transactions, aes(log10(C14), fill = factor(isFraud))) + geom_density (alpha = 0.1, size = 0.2) + ggtitle("Fraud Transactions in C14")
+```
+## No obvious pattern emerges from the EDA
+
+## The dataset has 590540 observations and 394 variables.  Variables needed to be trimmed down through dimensionality reduction.
+
+## Creating a correlation matrix to filter out uncorrelated variables
+```{r}
+transactions_cor <- transactions %>% mutate_if(is.character, as.factor)
+transactions_cor2 <- transactions_cor %>% mutate_if(is.factor, as.numeric)  
+corr <- cor(transactions_cor2)
+corr[lower.tri(corr,diag=TRUE)] <- NA 
+corr[corr == 1] <- NA   
+corr <- as.data.frame(as.table(corr))
+corr <- na.omit(corr)   
+corr <- subset(corr, abs(Freq) > 0.5) 
+corr <- corr[order(-abs(corr$Freq)),]
+mtx_corr <- reshape2::acast(corr, Var1~Var2, value.var="Freq")
+corrplot(mtx_corr, is.corr=FALSE, tl.col="blue", na.label=" ")
+```
+
+## Correlation plot didn't help much to sort out uncorrelated variables in the original dataset. Later Principal Component Analysis is carried out. But even that was not feasible for huge memory requirement considering the dataset  
+
+## Number of variables later reduced down by eliminating all the missing values. Even that left with 590540 observations with 25 variables
+
+```{r}
+transactions <- transactions[, colSums(is.na(transactions)) == 0]
+```
+
+## Encoding categorical data
+
+```{r}
+transactions$ProductCD <- factor(transactions$ProductCD, levels = c('C', 'H', 'R', 'S', 'W'), labels = c(1, 2, 3, 4, 5))
+transactions$card4 <- factor(transactions$card4, levels = c('american express', 'discover', 'mastercard', 'visa'), labels = c(1, 2, 3, 4))
+transactions$card6 <- factor(transactions$card6, levels = c('charge card', 'credit', 'debit', 'debit or credit'), labels = c(1, 2, 3, 4))
+transactions$M4 <- factor(transactions$M4, levels = c('M0', 'M1', 'M2'), labels = c(1, 2, 3))
+```
+
+## Dropping email columns of purchaser and recipient from dataset as they are categorical variables along with TransactionID 
+
+```{r}
+transactions <- subset(transactions, select = -c(TransactionID, P_emaildomain, R_emaildomain))
+```
+
+## Mutating the timedelta to hours and days
+
+```{r}
+transactions <- transactions %>% mutate(hr = floor((TransactionDT/3600) %% 24), weekday = floor( (TransactionDT / 3600/ 24) %% 7))
+transactions <- subset(transactions, select = -c(TransactionDT))
+```
+
+## Scaling the dataset
+
+```{r}
+transactions[,-c(1,3,5,6,21)] <- scale(transactions[,-c(1,3,5,6,21)])
+```
+
+## Splitting of dataset into train and test set
+
+```{r}
+set.seed(1)
+split <- sample.split(transactions$isFraud, SplitRatio = 0.8)
+train_transactions <- subset(transactions, split == TRUE)
+test_transactions <- subset(transactions, split == FALSE)
+```
+
+## Decision Tree model and initial results
+
+```{r}
+classifier <- rpart(formula = isFraud~ ., data = train_transactions, method = 'class')
+fraud_pred <- predict(classifier, newdata = test_transactions[-1], type = 'class')
+cm <- table(test_transactions$isFraud, fraud_pred)
+cm
+```
+
+## This is the initial result without addressing the imbalance. Further development in models will address the imbalance as well as comparative efficiency of different models in detecting fraudulent transactions
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
