@@ -1,0 +1,281 @@
+---
+title: "CKME 136 - Capstone Project"
+author: "Kazi Hasan"
+date: "7/27/2020"
+output: html_document
+---
+
+```{r}
+library(tidyverse)
+library(corrplot)
+library(caTools)
+library(caret)
+library(e1071)
+library(rpart)
+library(pROC)
+library(ROSE)
+library(class)
+
+transactions <- as_tibble(read.csv("C:/Users/Trina/Desktop/Ryerson - Data Analytics, Big Data, and Predictive Analytics/CKME 136/train_transaction.csv"))
+dim(transactions)
+
+```
+## Exploratory Data Analysis
+
+```{r}
+ggplot(transactions, aes(factor(isFraud), fill = factor(isFraud))) + geom_bar(alpha = 0.8) + theme_minimal() + ggtitle("Fraud 3.5%, Not Fraud 96.5%") + labs(x = "isFraud")
+```
+## There is a class imbalance between fraud and non-fraud transactions for obvious reasons
+```{r}
+ggplot(transactions, aes(ProductCD, fill = factor(isFraud))) + geom_bar(alpha = 0.7) + ggtitle("Fraud Transactions Productwise")
+ggplot(transactions, aes(card1, fill = factor(isFraud))) + geom_bar(alpha = 0.7) + ggtitle("Fraud Transactions in card1")
+ggplot(transactions, aes(card4, fill = factor(isFraud))) + geom_bar(alpha = 0.7) + ggtitle("Fraud Transactions in card4")
+ggplot(transactions, aes(card6, fill = factor(isFraud))) + geom_bar(alpha = 0.7) + ggtitle("Fraud Transactions in card6")
+ggplot(transactions, aes(P_emaildomain, fill = factor(isFraud))) + geom_bar(alpha = 0.7) + ggtitle("Fraud Transactions in Purchaser emaildomain") + coord_flip()
+ggplot(transactions, aes(R_emaildomain, fill = factor(isFraud))) + geom_bar(alpha = 0.7) + ggtitle("Fraud Transactions in Recipient emaildomain") + coord_flip()
+ggplot(transactions, aes(log10(C1), fill = factor(isFraud))) + geom_density (alpha = 0.1, size = 0.2) + ggtitle("Fraud Transactions in C1")
+ggplot(transactions, aes(log10(C2), fill = factor(isFraud))) + geom_density (alpha = 0.1, size = 0.2) + ggtitle("Fraud Transactions in C2")
+ggplot(transactions, aes(log10(C3), fill = factor(isFraud))) + geom_density (alpha = 0.1, size = 0.2) + ggtitle("Fraud Transactions in C3")
+ggplot(transactions, aes(log10(C4), fill = factor(isFraud))) + geom_density (alpha = 0.1, size = 0.2) + ggtitle("Fraud Transactions in C4")
+ggplot(transactions, aes(log10(C5), fill = factor(isFraud))) + geom_density (alpha = 0.1, size = 0.2) + ggtitle("Fraud Transactions in C5")
+ggplot(transactions, aes(log10(C6), fill = factor(isFraud))) + geom_density (alpha = 0.1, size = 0.2) + ggtitle("Fraud Transactions in C6")
+ggplot(transactions, aes(log10(C7), fill = factor(isFraud))) + geom_density (alpha = 0.1, size = 0.2) + ggtitle("Fraud Transactions in C7")
+ggplot(transactions, aes(log10(C8), fill = factor(isFraud))) + geom_density (alpha = 0.1, size = 0.2) + ggtitle("Fraud Transactions in C8")
+ggplot(transactions, aes(log10(C9), fill = factor(isFraud))) + geom_density (alpha = 0.1, size = 0.2) + ggtitle("Fraud Transactions in C9")
+ggplot(transactions, aes(log10(C10), fill = factor(isFraud))) + geom_density (alpha = 0.1, size = 0.2) + ggtitle("Fraud Transactions in C10")
+ggplot(transactions, aes(log10(C11), fill = factor(isFraud))) + geom_density (alpha = 0.1, size = 0.2) + ggtitle("Fraud Transactions in C11")
+ggplot(transactions, aes(log10(C12), fill = factor(isFraud))) + geom_density (alpha = 0.1, size = 0.2) + ggtitle("Fraud Transactions in C12")
+ggplot(transactions, aes(log10(C13), fill = factor(isFraud))) + geom_density (alpha = 0.1, size = 0.2) + ggtitle("Fraud Transactions in C13")
+ggplot(transactions, aes(log10(C14), fill = factor(isFraud))) + geom_density (alpha = 0.1, size = 0.2) + ggtitle("Fraud Transactions in C14")
+ggplot(transactions, aes(log10(D1), fill = factor(isFraud))) + geom_density (alpha = 0.1, size = 0.2) + ggtitle("Fraud Transactions in D1")
+ggplot(transactions, aes(log10(D2), fill = factor(isFraud))) + geom_density (alpha = 0.1, size = 0.2) + ggtitle("Fraud Transactions in D2")
+ggplot(transactions, aes(log10(D3), fill = factor(isFraud))) + geom_density (alpha = 0.1, size = 0.2) + ggtitle("Fraud Transactions in D3")
+ggplot(transactions, aes(log10(D4), fill = factor(isFraud))) + geom_density (alpha = 0.1, size = 0.2) + ggtitle("Fraud Transactions in D4")
+ggplot(transactions, aes(log10(D5), fill = factor(isFraud))) + geom_density (alpha = 0.1, size = 0.2) + ggtitle("Fraud Transactions in D5")
+ggplot(transactions, aes(log10(D6), fill = factor(isFraud))) + geom_density (alpha = 0.1, size = 0.2) + ggtitle("Fraud Transactions in D6")
+ggplot(transactions, aes(log10(D7), fill = factor(isFraud))) + geom_density (alpha = 0.1, size = 0.2) + ggtitle("Fraud Transactions in D7")
+ggplot(transactions, aes(log10(D8), fill = factor(isFraud))) + geom_density (alpha = 0.1, size = 0.2) + ggtitle("Fraud Transactions in D8")
+ggplot(transactions, aes(log10(D9), fill = factor(isFraud))) + geom_density (alpha = 0.1, size = 0.2) + ggtitle("Fraud Transactions in D9")
+ggplot(transactions, aes(log10(D10), fill = factor(isFraud))) + geom_density (alpha = 0.1, size = 0.2) + ggtitle("Fraud Transactions in D10")
+ggplot(transactions, aes(log10(D11), fill = factor(isFraud))) + geom_density (alpha = 0.1, size = 0.2) + ggtitle("Fraud Transactions in D11")
+ggplot(transactions, aes(log10(D12), fill = factor(isFraud))) + geom_density (alpha = 0.1, size = 0.2) + ggtitle("Fraud Transactions in D12")
+ggplot(transactions, aes(log10(D13), fill = factor(isFraud))) + geom_density (alpha = 0.1, size = 0.2) + ggtitle("Fraud Transactions in D13")
+ggplot(transactions, aes(log10(D14), fill = factor(isFraud))) + geom_density (alpha = 0.1, size = 0.2) + ggtitle("Fraud Transactions in D14")
+ggplot(transactions, aes(log10(D15), fill = factor(isFraud))) + geom_density (alpha = 0.1, size = 0.2) + ggtitle("Fraud Transactions in D15")
+ggplot(transactions, aes(M1, fill = factor(isFraud))) + geom_density (alpha = 0.1, size = 0.2) + ggtitle("Fraud Transactions in M1")
+ggplot(transactions, aes(M2, fill = factor(isFraud))) + geom_density (alpha = 0.1, size = 0.2) + ggtitle("Fraud Transactions in M2")
+ggplot(transactions, aes(M3, fill = factor(isFraud))) + geom_density (alpha = 0.1, size = 0.2) + ggtitle("Fraud Transactions in M3")
+ggplot(transactions, aes(M4, fill = factor(isFraud))) + geom_density (alpha = 0.1, size = 0.2) + ggtitle("Fraud Transactions in M4")
+ggplot(transactions, aes(M5, fill = factor(isFraud))) + geom_density (alpha = 0.1, size = 0.2) + ggtitle("Fraud Transactions in M5")
+ggplot(transactions, aes(M6, fill = factor(isFraud))) + geom_density (alpha = 0.1, size = 0.2) + ggtitle("Fraud Transactions in M6")
+ggplot(transactions, aes(M7, fill = factor(isFraud))) + geom_density (alpha = 0.1, size = 0.2) + ggtitle("Fraud Transactions in M7")
+ggplot(transactions, aes(M8, fill = factor(isFraud))) + geom_density (alpha = 0.1, size = 0.2) + ggtitle("Fraud Transactions in M8")
+ggplot(transactions, aes(M9, fill = factor(isFraud))) + geom_density (alpha = 0.1, size = 0.2) + ggtitle("Fraud Transactions in M9")
+```
+## No obvious pattern emerges from the EDA
+
+## The dataset has 590540 observations and 394 variables.  Variables needed to be trimmed down through dimensionality reduction.
+
+## Creating a correlation matrix to filter out uncorrelated variables
+```{r}
+transactions_cor <- transactions %>% mutate_if(is.character, as.factor)
+transactions_cor2 <- transactions_cor %>% mutate_if(is.factor, as.numeric)  
+corr <- cor(transactions_cor2)
+corr[lower.tri(corr,diag=TRUE)] <- NA 
+corr[corr == 1] <- NA   
+corr <- as.data.frame(as.table(corr))
+corr <- na.omit(corr)   
+corr <- subset(corr, abs(Freq) > 0.5) 
+corr <- corr[order(-abs(corr$Freq)),]
+mtx_corr <- reshape2::acast(corr, Var1~Var2, value.var="Freq")
+corrplot(mtx_corr, is.corr=FALSE, tl.col="blue", na.label=" ")
+```
+
+## Correlation plot didn't help much to sort out uncorrelated variables in the original dataset. Later Principal Component Analysis is carried out. But even that was not feasible for huge memory requirement considering the dataset  
+
+## Number of variables later reduced down by eliminating all the missing values. Even that left with 590540 observations with 25 variables
+
+```{r}
+transactions <- transactions[, colSums(is.na(transactions)) == 0]
+```
+
+# Dropping email columns of purchaser and recipient from dataset as they are categorical variables along with TransactionID 
+
+```{r}
+transactions <- subset(transactions, select = -c(TransactionID, P_emaildomain, R_emaildomain))
+```
+
+# Encoding categorical data
+
+```{r}
+transactions$ProductCD <- factor(transactions$ProductCD, levels = c('C', 'H', 'R', 'S', 'W'), labels = c(1, 2, 3, 4, 5))
+transactions$card4 <- factor(transactions$card4, levels = c('american express', 'discover', 'mastercard', 'visa'), labels = c(1, 2, 3, 4))
+transactions$card6 <- factor(transactions$card6, levels = c('charge card', 'credit', 'debit', 'debit or credit'), labels = c(1, 2, 3, 4))
+transactions$M4 <- factor(transactions$M4, levels = c('M0', 'M1', 'M2'), labels = c(1, 2, 3))
+```
+
+# Mutating the timedelta to hours and days
+
+```{r}
+transactions <- transactions %>% mutate(hr = floor((TransactionDT/3600) %% 24), weekday = floor( (TransactionDT / 3600/ 24) %% 7))
+transactions <- subset(transactions, select = -c(TransactionDT))
+```
+
+# Scaling the dataset
+
+```{r}
+transactions[,-c(1,3,5,6,21)] <- scale(transactions[,-c(1,3,5,6,21)])
+```
+
+## Splitting of dataset into train and test set
+
+```{r}
+set.seed(1)
+split <- sample.split(transactions$isFraud, SplitRatio = 0.8)
+train_transactions <- subset(transactions, split == TRUE)
+test_transactions <- subset(transactions, split == FALSE)
+```
+## Checking if the train and test split have the target variable in same proportion
+
+```{r}
+prop.table(table(train_transactions$isFraud))
+prop.table(table(test_transactions$isFraud))
+```
+
+# Fraud transactions seem to be evenly distributed
+
+# Decision Tree model and initial results (without addressing the imbalance dataset)
+
+```{r}
+dt_classifier <- rpart(formula = isFraud~ ., data = train_transactions, method = 'class')
+dt_fraud_pred <- predict(dt_classifier, newdata = test_transactions[-1], type = 'class')
+dt_cm <- table(test_transactions$isFraud, dt_fraud_pred)
+dt_cm
+dt_fraud_pred <- as.numeric(dt_fraud_pred)
+roc(test_transactions$isFraud, dt_fraud_pred, plot = TRUE, legacy.axes = TRUE, percent = TRUE)
+```
+
+# Area under the curve (AUC) is 0.599. This is the initial result without addressing the imbalance. It is evident in the dismal result. Further development in models will address the imbalance issue as well as comparative efficiency of different models in detecting fraudulent transactions
+
+## Decision Tree model using oversampling
+
+```{r}
+dt_over <- ovun.sample(isFraud~. , data = train_transactions, method = "over", N = 455902)$data
+dt_classifier_over <- rpart(formula = isFraud~ ., data = dt_over, method = 'class')
+dt_fraud_pred_over <- predict(dt_classifier_over, newdata = test_transactions[-1], type = 'class')
+dt_cm_over <- table(test_transactions$isFraud, dt_fraud_pred_over)
+dt_cm_over
+dt_fraud_pred_over <- as.numeric(dt_fraud_pred_over)
+roc(test_transactions$isFraud, dt_fraud_pred_over, plot = TRUE, legacy.axes = TRUE, percent = TRUE)
+```
+
+## Oversampling resulted AUC 0.7138 which is better than the simple decision tree model
+
+## Decision Tree model using undersampling
+
+```{r}
+dt_under <- ovun.sample(isFraud~. , data = train_transactions, method = "under", N = 33060)$data
+dt_classifier_under <- rpart(formula = isFraud~ ., data = dt_under, method = 'class')
+dt_fraud_pred_under <- predict(dt_classifier_under, newdata = test_transactions[-1], type = 'class')
+dt_cm_under <- table(test_transactions$isFraud, dt_fraud_pred_under)
+dt_cm_under
+dt_fraud_pred_under <- as.numeric(dt_fraud_pred_under)
+roc(test_transactions$isFraud, dt_fraud_pred_under, plot = TRUE, legacy.axes = TRUE, percent = TRUE)
+```
+
+# Overall result is better than the simple decision tree with an AUC of 0.6554 but for this dataset this is less than the oversampling method 
+
+# K-NN Model
+
+```{r}
+knn_train_transactions <- na.omit(train_transactions)
+knn_test_transactions <- na.omit(test_transactions)
+knn_fraud_pred <- knn(train = knn_train_transactions[, -1], test = knn_test_transactions[, -1], cl = knn_train_transactions$isFraud, k = 5)
+knn_cm <- table(knn_test_transactions$isFraud, knn_fraud_pred)
+knn_cm
+knn_fraud_pred <- as.numeric(knn_fraud_pred)
+roc(knn_test_transactions$isFraud, knn_fraud_pred, plot = TRUE, legacy.axes = TRUE, percent = TRUE)
+```
+
+# AUC as per K-NN model is 0.6049. The result is not impressive
+
+# K-NN model with oversampling
+
+```{r}
+knn_over <- ovun.sample(isFraud~. , data = knn_train_transactions, method = "over", N = 250000)$data
+knn_fraud_pred_over <- knn(train = knn_over[, -1], test = knn_test_transactions[, -1], cl = knn_over$isFraud, k = 5)
+knn_fraud_pred_over <- as.numeric(knn_fraud_pred_over)
+roc(knn_test_transactions$isFraud, knn_fraud_pred_over, plot = TRUE, legacy.axes = TRUE, percent = TRUE)
+```
+
+# Oversampling resulted AUC 0.6329, slight better than the original K-NN model but not much
+
+# K-NN model with undersampling
+
+```{r}
+knn_under <- ovun.sample(isFraud~. , data = knn_train_transactions, method = "under", N = 25000)$data
+knn_fraud_pred_under <- knn(train = knn_under[, -1], test = knn_test_transactions[, -1], cl = knn_under$isFraud, k = 5)
+knn_fraud_pred_under <- as.numeric(knn_fraud_pred_under)
+roc(knn_test_transactions$isFraud, knn_fraud_pred_under, plot = TRUE, legacy.axes = TRUE, percent = TRUE)
+```
+
+# Undersampling of the K-NN model resulted significantly better AUC of 0.6945
+
+# Logistic Regression model
+
+```{r}
+glm_train <- subset(train_transactions, select = -c(3,5,6,21))
+glm_test <- subset(test_transactions, select = -c(3,5,6,21))
+glm_classifier <- glm(isFraud~., family = binomial, data = glm_train)
+glm_fraud_pred <- predict(glm_classifier, type = 'response', newdata = glm_test[-1])
+glm_fraud_pred <- ifelse(glm_fraud_pred > 0.5, 1, 0)
+glm_cm <- table(glm_test$isFraud, glm_fraud_pred)
+glm_cm
+roc(glm_test$isFraud, glm_fraud_pred, plot = TRUE, legacy.axes = TRUE, percent = TRUE)
+```
+
+# Logistic Regression resulted an AUC of 0.5229
+
+# Logistic Regression model with oversampling
+
+```{r}
+glm_over <- ovun.sample(isFraud~. , data = glm_train, method = "over", N = 475000)$data
+glm_classifier_over <- glm(isFraud~., family = binomial, data = glm_over)
+glm_fraud_pred_over <- predict(glm_classifier_over, type = 'response', newdata = glm_test[-1])
+glm_fraud_pred_over <- ifelse(glm_fraud_pred_over > 0.5, 1, 0)
+glm_cm_over <- table(glm_test$isFraud, glm_fraud_pred_over)
+glm_cm_over
+roc(glm_test$isFraud, glm_fraud_pred_over, plot = TRUE, legacy.axes = TRUE, percent = TRUE)
+```
+
+# Resulted AUC 0.5236
+
+# Logistic Regression model with undersampling
+
+```{r}
+glm_under <- ovun.sample(isFraud~. , data = glm_train, method = "under", N = 34000)$data
+glm_classifier_under <- glm(isFraud~., family = binomial, data = glm_under)
+glm_fraud_pred_under <- predict(glm_classifier_under, type = 'response', newdata = glm_test[-1])
+glm_fraud_pred_under <- ifelse(glm_fraud_pred_under > 0.5, 1, 0)
+glm_cm_under <- table(glm_test$isFraud, glm_fraud_pred_under, legacy.axes = TRUE, percent = TRUE)
+glm_cm_under
+roc(glm_test$isFraud, glm_fraud_pred_under, plot = TRUE)
+```
+
+# Resulted AUC 0.6904. This is the best prediction among logistic regression models
+
+# Light Gradient Boost (LGB) model
+
+```{r}
+lgb_param <- list(boosting_type = 'dart', objective = 'binary', metric = 'AUC')
+lgb_train <- lgb.Dataset(as.matrix(train_transactions))
+lgb_test <- lgb.Dataset(as.matrix(test_transactions))
+lgb_model <- lgb.train(params = lgb_param, data = lgb_train, nrounds = 5000)
+lgb_pred_fraud <- predict(lgb_model, as.matrix(test_transactions))
+roc(test_transactions$isFraud, lgb_pred_fraud, plot = TRUE, legacy.axes = TRUE, percent = TRUE)
+```
+
+# Light Gradient Boost model give an AUC of 0.5 only 
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
